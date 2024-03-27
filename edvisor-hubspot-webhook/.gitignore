@@ -1,0 +1,5 @@
+.serverless
+node_modules
+.env
+.env.prod
+backup.txt

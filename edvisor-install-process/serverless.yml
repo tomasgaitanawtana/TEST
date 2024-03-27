@@ -1,0 +1,51 @@
+service: edvisor-install
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Scan
+          Resource:
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData'
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-edvisor-install-process'
+
+functions:
+  installationReceive:
+    name: ${sls:stage}-edvisor-install-process
+    handler: install.process
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './install.js'
+    environment:
+      REDIRECT_URI: ${env:REDIRECT_URI}
+      CLIENT_ID: ${env:CLIENT_ID}
+      CLIENT_SECRET: ${env:CLIENT_SECRET}
+      TABLE_NAME: ${sls:stage}-IntegrationsData
+      REDIRECT_URL: ${env:REDIRECT_URL}
+      REDIRECT_URL_ERROR: ${env:REDIRECT_URL_ERROR}
+    events:
+      - httpApi:
+          path: /callback
+          method: GET
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+  - serverless-offline
+

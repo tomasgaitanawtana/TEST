@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.428.0",
+    "@aws-sdk/client-lambda": "^3.425.0",
+    "@aws-sdk/client-sqs": "^3.427.0",
+    "axios": "^1.5.1",
+    "form-data": "^4.0.0",
+    "querystring": "^0.2.1"
+  },
+  "devDependencies": {
+    "serverless-offline": "^13.2.0",
+    "serverless-plugin-common-excludes": "^4.0.0",
+    "serverless-plugin-include-dependencies": "^5.1.0"
+  }
+}

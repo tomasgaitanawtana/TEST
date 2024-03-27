@@ -1,0 +1,73 @@
+service: new-architecture
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-MiddlewareDB'
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData'
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData/index/agencyCompanyId-index'
+        - Effect: Allow
+          Action:
+            - sqs:GetQueueUrl
+            - sqs:SendMessage
+            - sqs:GetQueueAttributes
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+          Resource: !ImportValue ${sls:stage}-QueueArn
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-new-architecture-process'
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-edvisor-update-owners'
+
+functions:
+  quotesReceive:
+    name: ${sls:stage}-new-architecture-receive
+    handler: architecture.receive
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './architecture.js'
+    environment:
+      QUEUE_NAME: ${sls:stage}-edvisor-hubspot-events-queue
+      FUNCTION_NAME: ${sls:stage}-new-architecture-process
+    events:
+      - httpApi:
+          path: /architecture
+          method: POST
+  quotesProcess:
+    name: ${sls:stage}-new-architecture-process
+    handler: architecture.process
+    timeout: 300
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './architecture.js'
+    environment:
+      TABLE_NAME: ${sls:stage}-MiddlewareDB
+      TABLE_NAME_TOKEN: ${sls:stage}-IntegrationsData
+      CLIENT_ID: ${env:CLIENT_ID}
+      CLIENT_SECRET: ${env:CLIENT_SECRET}
+      UPDATE_FUNCTION_NAME: ${env:UPDATE_FUNCTION_NAME}
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+  - serverless-offline

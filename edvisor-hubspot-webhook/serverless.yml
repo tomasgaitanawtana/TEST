@@ -1,0 +1,98 @@
+service: edvisor-quotes
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+          Resource:
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-MiddlewareDB'
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData'
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData/index/agencyCompanyId-index'
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-edvisor-contacts-process'
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-edvisor-quotes-process'
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-edvisor-update-owners'
+            
+
+functions:
+  contactsReceive:
+    name: '${sls:stage}-edvisor-contacts-receive'
+    handler: contacts.receive
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './contacts.js'
+    environment:
+      FUNCTION_NAME: ${sls:stage}-edvisor-contacts-process
+    events:
+      - httpApi:
+          path: /contacts/{agency}
+          method: POST
+  quotesReceive:
+    name: '${sls:stage}-edvisor-quotes-receive'
+    handler: quotes.receive
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './quotes.js'
+    environment:
+      FUNCTION_NAME: ${sls:stage}-edvisor-quotes-process
+    events:
+      - httpApi:
+          path: /quotes/{agency}
+          method: POST
+  contactsProcess:
+    name: '${sls:stage}-edvisor-contacts-process'
+    handler: contacts.process
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './contacts.js'
+    environment:
+      TABLE_NAME: ${sls:stage}-MiddlewareDB
+      FUNCTION_NAME: ${sls:stage}-edvisor-update-owners
+      TABLE_NAME_TOKEN: ${sls:stage}-IntegrationsData
+  quotesProcess:
+    name: '${sls:stage}-edvisor-quotes-process'
+    handler: quotes.process
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './quotes.js'
+    environment:
+      TABLE_NAME: ${sls:stage}-MiddlewareDB
+      FUNCTION_NAME: ${sls:stage}-edvisor-update-owners
+      TABLE_NAME_TOKEN: ${sls:stage}-IntegrationsData
+  updateOwners:
+    name: ${sls:stage}-edvisor-update-owners
+    handler: owners.handler
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './owners.js'
+    environment:
+      TABLE_NAME: ${sls:stage}-MiddlewareDB
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+  - serverless-offline

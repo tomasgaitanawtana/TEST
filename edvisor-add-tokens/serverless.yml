@@ -1,0 +1,44 @@
+service: add-edvisor-token
+frameworkVersion: '3'
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+          Resource:
+            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${sls:stage}-IntegrationsData'
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${sls:stage}-add-edvisor-token-process'
+
+functions:
+  installationReceive:
+    name: ${sls:stage}-add-edvisor-token-process
+    handler: app.process
+    package:
+      individually: true
+      patterns:
+        - '!./*'
+        - './app.js'
+    environment:
+      TABLE_NAME: ${sls:stage}-IntegrationsData
+    events:
+    - httpApi:
+        path: '/edvisorToken'
+        method: POST
+
+plugins:
+  - serverless-plugin-common-excludes
+  - serverless-plugin-include-dependencies
+  - serverless-offline

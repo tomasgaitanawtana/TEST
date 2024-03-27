@@ -1,0 +1,19 @@
+service: edvisor-resources
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+
+resources:
+  Resources:
+    EventsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${sls:stage}-edvisor-hubspot-events-queue
+
+  Outputs:
+    QueueArn:
+      Value: !GetAtt EventsQueue.Arn
+      Export:
+        Name: ${sls:stage}-QueueArn
